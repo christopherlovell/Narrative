@@ -39,11 +39,10 @@ corpusAggregate <- function(corpus,meta_time,time_aggregate,FUN,...){
 #'Returns an xts object given time and value data frames
 #'@param time data frame of time values
 #'@param value data frame of values corresponding to times
-xtsGenerate <- function(time,value){
-  df<-data.frame(time,value)
-  df<-na.omit(df)
-  names(df)<-c("date","value")
-  return(xts(df$value,order.by=df$date))
+xtsGenerate <- function(time, value){
+  df<-na.omit(data.frame(time,value))
+  names(df)<-c("date",paste(dimnames(value)[[2]]))
+  return(xts(df[,-1],order.by=df$date))
 }
 
 #'Aggregate xts objects
@@ -71,10 +70,17 @@ xtsAggregate <- function(xts.scores, time_aggregate, aggregate_function = sum, n
     norm.aggregate = 1
   }else if(normalisation == T){
     norm.aggregate<-apply_aggregate(xts.scores,length)
-  }else if(class(normalisation) == "vector" & length(normalisation) == length(xts.scores)){
-    xts.norm <- xtsGenerate(xts.scores$time,normalisation)
+  }else if(class(normalisation) %in% c("numeric","integer")){
+    if(length(normalisation) != nrow(xts.scores)){
+      stop("Provide a normalisation vector of equal length to the xts object")
+    }
+    xts.norm <- xtsGenerate(zoo::index(xts.scores), normalisation)
     norm.aggregate <- apply_aggregate(xts.norm, sum)
+  }else{
+    stop("Please provide a valid normalisation value. See the documentation for details on accepted data types.")
   }
   
-  return(apply_aggregate(xts.scores, aggregate_function) / norm.aggregate)
+  return(do.call(cbind.xts, lapply(lapply(xts.scores, apply_aggregate, sum), function(x) x/norm.aggregate)))
 }
+
+

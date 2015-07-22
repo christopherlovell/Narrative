@@ -2,9 +2,7 @@
 title: "Introduction to Narrative"
 author: "Christopher Lovell"
 date: "July 6, 2015"
-output: 
-  pdf_document: 
-    latex_engine: xelatex
+output: pdf_document
 ---
 
 ### Introduction
@@ -71,6 +69,7 @@ findAssocs(dtm, "opec" ,corlimit = 0.85)
 ### Narrative
 Now that I have summarised the basic text mining functionality provided by *tm*, I'll move on to the additional functionality written in *Narrative*. I will use the `Narrative::function` syntax to distinguish between functions written in Narrative or other packages.
 
+#### Word & Character Counts
 Word and character counts are often useful for normalising statistics generated from your corpus. We can generate vectors of each using the `characterCount` and `wordCount` functions. `characterCount` accepts the corpus as an argument, whereas `wordCount` uses a document term matrix.
 
 ```{r}
@@ -78,7 +77,10 @@ wc <- Narrative::wordCount(dtm)
 cc <- Narrative::characterCount(reuters)
 ```
 
-Each function returns a numeric vector giving the word or character count for each document in our corpus. These vectors can be added to our corpus metadata using the `addToMetaData` function.
+Each function returns a numeric vector giving the word or character count for each document in our corpus.
+
+#### Meta data
+These vectors can be added to our corpus metadata using the `addToMetaData` function.
 
 ```{r}
 reuters <- Narrative::addToMetaData(corpus = reuters, vector = wc, tag = "word_count")
@@ -100,17 +102,72 @@ We can then read this data back in to R, including the metadata, using the `read
 reuters2 <- Narrative::readSeparateText("C:\\Users\\324240\\Desktop\\test_files",load_metadata = T,metadata_filename = "reuters_metadata.RDS")
 ```
 
-
 #### Term Frequency Analysis
+A document term matrix provides a ready made data structure for searching. In our example corpus, we can find the number of occurences of the term "oil" by subsetting the DTM on columns.
 
+```{r}
+inspect(dtm[,c("oil")])
+```
 
+This can be used to create a time series, showing how the usage of this term has changed over time. To do this, we convert the subsetted DTM in to a numeric vector.
 
+```{r}
+search.result <- as.matrix(dtm[,c("oil")])
+```
 
+We then use this to generate an `xts` object, which is an R time series data type. To do this, we pass the search result as well as the date-time data from the corpus meta data to the `xtsGenerate` function. 
 
+```{r}
+xts.search <- Narrative::xtsGenerate(time = do.call(c,meta(reuters,"datetimestamp")),
+                                     value = search.result)
+xts.search
+```
 
+The xts data type allows us then to aggregate our data by time bin. Below, we aggregate by day to return the total number of occurences across all documents on this day.
 
+```{r}
+xts.search.aggregate <- Narrative::xtsAggregate(xts.search,
+                                                time_aggregate = "daily",
+                                                normalisation = F)
+xts.search.aggregate
+```
 
+There are a number of different normalisation options when aggregating your time series data. If you wish to normalise by the number of documents in a given window, set the normalisation flag to true.
 
+```{r}
+xts.search.aggregate <- Narrative::xtsAggregate(xts.search,
+                                                time_aggregate = "daily",
+                                                normalisation = T)
+xts.search.aggregate
+```
+
+Alternatively, you can normalise by any other dimension associated with your data. Just pass a numeric vector of normalisation values to the `normalisation` argument. Below, we use the character count calculated previously to normalise by size of document, then plot this along with a Loess smoother.
+
+```{r warning=FALSE, message=FALSE}
+xts.search.aggregate <- Narrative::xtsAggregate(xts.search,
+                                                time_aggregate = "daily",
+                                                normalisation = do.call(c,meta(reuters,"character_count")))
+
+p <- zoo::autoplot.zoo(xts.search.aggregate) + ggplot2::stat_smooth()
+p
+```
+
+You can search for and compare multiple terms at the same time.
+
+```{r}
+terms <- c("oil","crude","kuwait")
+search.result <- as.matrix(dtm[,terms])
+
+xts.search <- Narrative::xtsGenerate(time = do.call(c,meta(reuters,"datetimestamp")),
+                                     value = search.result)
+
+xts.search.aggregate <- Narrative::xtsAggregate(xts.search,
+                                                time_aggregate = "daily",
+                                                normalisation = do.call(c,meta(reuters,"character_count")))
+
+p <- zoo::autoplot.zoo(xts.search.aggregate, facets = NULL)
+p
+```
 
 
 
