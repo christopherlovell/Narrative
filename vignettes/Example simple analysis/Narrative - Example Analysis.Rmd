@@ -1,0 +1,108 @@
+---
+output: rmarkdown::tufte_handout
+---
+
+Narrative: an Introduction
+========================================================
+
+*A simple introductory analysis using the Narrative package.*
+
+```{r echo=FALSE, message=FALSE}
+if(!require(ggplot2)){
+  install.packages("ggplot2")
+}
+if(!require(tm)){
+  install.packages("tm")
+}
+
+# working directory should already be set...
+wd<-"C://dev//Datalab//Narrative"
+setwd(wd)
+```
+
+First we wish to read some sample documents in to the corpus
+
+```{r}
+corp<-Narrative::readSeparateText(paste(wd,"//inst//extdata//Sample Docs (txt) - Header",sep=""))
+```
+
+```{r echo=FALSE}
+# create term document matrix from corpus
+#tdm <- TermDocumentMatrix(corp)
+#dtm <- DocumentTermMatrix(corp)
+#dtm<-removeSparseTerms(dtm,sparse=0.4)
+```
+
+The `readSeparateText` functions create a Corpus object from the files in the given directory, changing the name of each document to the filenames. We can then apply some cleaning function to the corpus from the *tm* package, using the `content_transformer` function to ensure the transformations are applied only to the text of the document and not the associated meta data. First we remove all non-ASCII characters:
+```{r}
+  clean_non_ascii <- function(x){iconv(x, "latin1", "ASCII", sub="")}
+  corp<-tm_map(corp,content_transformer(clean_non_ascii))
+```
+
+Then remove punctuation:
+```{r}
+  corp<-tm_map(corp,content_transformer(removePunctuation))
+  #corp<-tm_map(corp,content_transformer(removePunctuation),preserve_intra_word_dashes=T)
+```
+
+Remove numbers:
+```{r}
+  corp<-tm_map(corp,content_transformer(removeNumbers))
+```
+
+Eliminate extra whitespace (multiple whitespace characters are collapsed to a single blank):
+```{r}
+  corp<-tm_map(corp,content_transformer(stripWhitespace))
+```
+
+Convert all characters in the documents to lower case:
+```{r}  
+  corp<-tm_map(corp,content_transformer(tolower))
+```
+
+Remove stopwords, using the a default english stopword library supplied with *tm*:
+```{r}  
+  corp<-tm_map(corp,removeWords,stopwords("english"))
+```
+
+Stem all of the words in the document to their base:
+```{r}  
+  corp<-tm_map(corp,stemDocument,language="english")
+```
+
+Our corpus of documents is now cleaned and stemmed. We now wish to construct a dictionary to compare against. In this case we load both positive and negative dictionaries in to a single corpus document, and apply the samecleaning and stemming techniques as to the corpus across the whole dictionary corpus.
+
+First, read the positive dictionary:
+
+```{r echo=TRUE}
+positive_dictionary<-Narrative::readSeparateText(paste(wd,"//inst//extdata//Dictionaries//Financial//positive",sep=""))
+meta(positive_dictionary[[1]],tag="heading")<-"positive"
+```
+
+Add negative dictionary to corpus:
+```{r}
+negative_dictionary<-Narrative::readSeparateText(paste(wd,"//inst//extdata//Dictionaries//Financial//negative",sep=""))
+meta(negative_dictionary[[1]],tag="heading")<-"negative"
+
+dictionaries<-c(positive_dictionary,negative_dictionary)
+```
+
+Transform dictionaries, using the `transform_docs` function that combines all of the transformations described above in to a single function call:
+```{r}
+dictionaries<-Narrative::transform_docs(dictionaries)
+```
+
+We can then use these dictionaries to calculate the sentiment of each document in our corpus. Here we use a simple word counting approach that sums the number of positive and negative words, calculates the difference and divides by the number of words in the document:
+```{r, warning=FALSE}
+corp<-Narrative::corpusSentiment(corp
+                                ,dict.positive=dictionaries[meta(dictionaries,"heading")=='positive']
+                                ,dict.negative=dictionaries[meta(dictionaries,"heading")=='negative']
+                                ,normalisation="character"
+                                )
+```
+
+The plot below shows the relative sentiments of all the documents:
+```{r, warning=FALSE, echo=TRUE}
+qplot(seq_along(meta(corp,tag="sentiment")), sort(unlist(meta(corp,tag="sentiment"))),geom="bar",stat="identity",xlab="doc",ylab="sentiment score")
+```
+

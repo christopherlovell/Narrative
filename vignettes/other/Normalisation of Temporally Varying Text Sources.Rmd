@@ -1,0 +1,11 @@
+---
+title: "Normalisation of Temporally Varying Text Sources"
+author: "Christopher Lovell"
+date: "Tuesday, April 28, 2015"
+output: html_document
+---
+
+## Heap's Law as Motivation
+
+
+

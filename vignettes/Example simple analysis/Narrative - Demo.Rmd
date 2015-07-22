@@ -1,0 +1,283 @@
+---
+title: "An Introduction to Narrative"
+author: "Christopher Lovell"
+date: "Thu Feb 05, 2015"
+output: word_document
+---
+
+---
+Narrative package written by the author combines many functions in the publicly available `tm` package together for ease of use on Corpus objects. The following gives an example of some of those functions, as well as a guide to exploiting the existing `tm` functionality.
+
+### Set up
+For the purposes of this demo we require the `ggplot2` and `RWeka` packages. `tm` is imported implicitly. 
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+if(!require(tm)){
+  install.packages("tm")
+}
+if(!require(ggplot2)){
+  install.packages("ggplot2")
+}
+if(!require(RWeka)){
+  install.packages("RWeka")
+}
+if(!require(xts)){
+  install.packages("xts")
+}
+library(Narrative)
+```
+Set working directory.
+```{r}
+wd<-"C://dev//Datalab//Narrative"
+setwd(wd)  
+```
+
+### IO
+There are three IO functions as part of the package. `readSeparateText` reads all text documents in a given directory in to a corpus object.
+
+```{r}
+corp<-Narrative::readSeparateText(paste(wd,"//inst//extdata//Sample Docs (txt) - Header",sep=""))
+corp
+```
+```{r echo=FALSE,warning=FALSE}
+rm(corp)
+```
+
+Narrative also includes `readLexisNexisText` for reading text output from LexisNexis, and saveCorpus for writing corpus objects to disc. 
+
+For the purposes of this demo we will use the demo acquisition data, `acq`, from the `tm` package.
+```{r warning=FALSE}
+data("acq")
+acq
+```
+
+### Cleaning
+The `transform_docs` function performs a number of the transform operations in tm (`r getTransformations()`) on a given corpus.
+```{r}
+acq<-Narrative::transform_docs(acq)
+acq[[1]]
+```
+
+I'm going to apply a subset of the transformations to clean up our corpus. Use the `content_transformer` function to ensure the transformations are applied only to the text of the document and not the associated meta data. 
+```{r}
+#Get the original documents back, untransformed
+data("acq")
+
+clean_non_ascii <- function(x){iconv(x, "latin1", "ASCII", sub="")}
+acq<-tm_map(acq,content_transformer(clean_non_ascii))
+acq<-tm_map(acq,content_transformer(stripWhitespace))
+acq<-tm_map(acq,content_transformer(removePunctuation))
+acq<-tm_map(acq,content_transformer(removeNumbers))
+acq<-tm_map(acq,content_transformer(tolower))
+```
+
+### Counting
+To normalise many corpus or document metrics you need the number of words, characters or terms in a given document. Narrative provides functions for calculating these and adding them to the document level meta data of your corpus. 
+
+The `characterCount` function accepts a corpus or document subset as an argument and calculates character counts at the document level within this object, returning an integer vector of counts. We then assign the result to the meta data of the corpus.
+```{r}
+v<-Narrative::characterCount(acq)
+acq<-Narrative::addToMetaData(acq,v,"count.character")
+
+head(meta(acq,tag="count.character"),3)
+```
+
+The `wordCount` function accepts a document term matrix as an argument; we calculate this up front, and assign the transpose (the term document matrix) to its own variable for use later. It calculates word counts at the document level within this object, returning an integer vector of counts. Again, we assign the result to the meta data of the corpus.
+```{r}
+dtm<-DocumentTermMatrix(acq)
+tdm<-t(dtm)
+
+v<-Narrative::wordCount(dtm)
+acq<-Narrative::addToMetaData(acq,v,"count.word")
+
+head(meta(acq,tag="count.word"),3)
+```
+
+If we wish to know the number of *unique* terms in the corpus, use the `nTerms` function from `tm`.
+```{r}
+nTerms(tdm)
+```
+
+If you wish to know the number of unique terms in a subset of documents, subset the document term matrix and apply nTerms.
+```{r}
+nTerms(dtm[1:10,])
+nTerms(dtm[20,])
+```
+
+### Sentiment
+Narrative contains a sentiment calculator for documents based on an algorithm used in the Financial Narratives tool. It uses a dictionary based approach to count the occurence of words in pre-defined positive and negative dictionaries. It then uses the difference in these counts, normalised by the size of the document (usually a character or word count), to produce a value between -1 and 1 representing the sentiment.
+
+Here I import positive and negative dictionaries (based on a financial context) in to their own corpus object, named appropriately in the meta data. I can then use these to calculate the sentiment of each document. The positive and negative term counts and the sentiment value are assigned to the meta data of the corpus in the call to `corpusSentiment`. 
+```{r warning=FALSE}
+positive_dictionary<-Narrative::readSeparateText(paste(wd,"//inst//extdata//Dictionaries//Financial//positive",sep=""))
+meta(positive_dictionary[[1]],tag="heading")<-"positive"
+
+negative_dictionary<-Narrative::readSeparateText(paste(wd,"//inst//extdata//Dictionaries//Financial//negative",sep=""))
+meta(negative_dictionary[[1]],tag="heading")<-"negative"
+
+dictionaries<-c(positive_dictionary,negative_dictionary)
+
+v<-Narrative::corpusSentiment(t(dtm)
+                              ,acq
+                              ,dict.positive=dictionaries[meta(dictionaries,"heading")=='positive'][[1]]$content
+                              ,dict.negative=dictionaries[meta(dictionaries,"heading")=='negative'][[1]]$content
+                              #,normalisation.meta="count.word"
+                              )
+
+acq<-Narrative::addToMetaData(acq,v[,1],tag="sentiment")
+acq<-Narrative::addToMetaData(acq,v[,2],tag = "positive.count")
+acq<-Narrative::addToMetaData(acq,v[,3],tag = "negative.count")
+```
+
+The box plot below shows the distribution of document sentiments:
+```{r, warning=FALSE, echo=FALSE}
+dat<-as.data.frame(as.numeric(meta(acq,tag="sentiment")))
+names(dat)<-"sentiment"
+p1<-ggplot(dat,aes(x=0,y=sentiment))+geom_boxplot()+ylab("Sentiment")+xlab("")
+p1<-p1+geom_point()
+p1
+```
+
+### Searching
+Does "reorganization" appear in the corpus? Check using the document term matrix 
+```{r}
+"reorganization" %in% Terms(dtm)
+```
+
+Where does it appear?
+```{r collapse=TRUE}
+as.matrix(dtm[,"exchange"])
+```
+
+Can limit search to a subset of documents
+```{r}
+as.matrix(dtm[1:5,c("exchange")])
+```
+
+More than one word?
+```{r}
+as.matrix(dtm[1:5,c("exchange","share")])
+```
+
+Which documents contain *exchange* AND *share*
+
+```{r}
+search.match<-as.matrix(dtm[,c("exchange","share")])
+Narrative::logicalMatch(search.match,logic = "AND")
+```
+
+What if we want to search for phrases, or combinations of words? These are known as n-grams, and we need to create a corresponding term document matrix for each order we wish to search for. The 'tdmGenerator` function does just this, taking either a character vector of terms you wish to search for, or a numeric vector of lengths, and returning a term document matrix for each corresponding unique length. For example, given a vector of terms:
+
+```{r}
+terms<-c("year","move","of the","The company said","completed the sale")
+
+tdm.terms<-Narrative::tdmGenerator(terms,acq)
+tdm.terms
+```
+The object returned is a nested list of document term matrices with the term length stored alongside each matrix.
+
+Given a vector of lengths:
+```{r}
+tdm.1_10<-Narrative::tdmGenerator(c(1,10),acq)
+tdm.1_10
+```
+
+We can use the previous nested list `tdm.terms` in the `nGramSearch` function to return a matrix of counts for each term.
+```{r}
+search.result<-Narrative::nGramSearch(terms,tdm.terms)
+search.result
+```
+
+If we wish to see the relative proportion of documents that match each search term we can call `corpusProportion` on the output from our search:
+```{r}
+Narrative::corpusProportion(search.result)
+```
+
+If we want to use this search in comparison with other corpus data we can append it to the meta data, using `addToMetaData()`. here we append the frequency counts for year to each document:
+```{r}
+acq<-Narrative::addToMetaData(acq,search.result[,"year"],tag = "search.year")
+meta(acq[[2]])
+```
+
+## Time Series
+
+Using the search we matrix we generated in the previous section we can create a time series of counts for the term year using the `timeSeriesNarrative` function. This generates an xts time series object of the aggregated counts over time, which can then be plotted using xts's built in plotting functions:
+```{r}
+acq.xts.year.daily<-Narrative::timeSeriesNarrative(acq,meta_time="datetimestamp",time_aggregate="daily",meta_field="search.year",meta_normalisation_field = T,aggregate_function = sum)
+
+plot.xts(acq.xts.year.daily,type="l",minor.ticks=F)
+```
+`meta_time` defines the time meta data you wish to plot over. `time_aggregate` gives the time aggregation level you wish to apply, either daily, weekly, monthly, quarterly or yearly. `meta_field` is the numeric meta data you wish to see over time. `meta_normalisation_field` tells Narrative what you wish to use for normalisation; if *False* apply no normalisation, if *True* normalise by number of documents in the time aggregate bin, or you can specify another meta data field (as a named string) to aggregate for normalisation. `aggregate_function` defines the function for aggregation, default `sum`.
+
+
+We can also plot other meta data fields, such as the sentiment we calculated previously:
+```{r}
+acq.xts.sentiment.daily<-Narrative::timeSeriesNarrative(acq,meta_time="datetimestamp",time_aggregate="daily",meta_field="sentiment",meta_normalisation_field = T)
+
+plot.xts(acq.xts.sentiment.daily,type="l",minor.ticks=F)
+```
+
+### Weighting
+
+A term document matrix does not apply any ranking or weighting to the terms. There are a number of functions in `tm` which can do this. For example, we could weight terms by the frequency of their occurence in a document. This is done by default by the call to `TermDocumentMatrix`, but is executed explicitly as so: 
+```{r}
+weightTf(tdm)
+```
+
+The `Weighting` parameter tells us the weighting scheme applied to the term document matrix. If we now use a Tf-Idf weight this will change the term document matrix level meta data. We can also filter this object like any other matrix, here by a subset of documents:
+```{r}
+weightTfIdf(tdm)[,1:10]
+```
+
+To search for the scores for specific terms subset by a character vector of terms; if any of the terms aren't present this will error, so check first.
+```{r}
+terms<-c("year","switzerland")
+terms %in% Terms(tdm)
+inspect(weightTfIdf(tdm)[terms,])
+```
+
+If we want to see these counts explicitly we can call `inspect`, or convert the TermDocumentMatrix object to an explicit matrix object.
+```{r}
+weight.tfidf<-as.matrix(weightTfIdf(tdm)[,1:10])
+head(weight.tfidf)
+```
+
+This matrix can be passed to `weightSort` to return a list of sorted weights for each document. We can then filter by document using the atomic operator and show the top terms for that weighting.
+```{r}
+weight.tfidf.sort<-Narrative::weightSort(weight.tfidf)
+head(weight.tfidf.sort[[1]])
+```
+
+Want the top scoring terms across the whole corpus? Just generate your matrix of scores, then calculate the `rowSums` and sort the resulting vector.
+```{r}
+weight.tfidf<-as.matrix(weightTfIdf(tdm))
+head(sort(rowSums(weight.tfidf),decreasing = T))
+```
+
+#### tf-idf
+The Term Frequency - Inverse Document Frequency statistic provides a way of positively weighting words in a corpus that appear with high frequency in a few documents. The tf part removes words that appear very frequently within a document, such as stop words, and the idf part removes words that appear across all documents, since these are less able at distinguishing between documents. The full tf-idf statistic is given by the product of each.
+
+$$
+  tf_{t,d}=\log{1+f_{td}} \\
+  {idf}_{t}=\log{\frac{N}{d_f}} \\
+  tf-idf=tf_{t,d}{\cdot}idf_{t} \\
+$$
+
+
+```{r echo=FALSE,eval=FALSE}
+## WORDCLOUD
+acq<-Narrative::transform_docs(acq)
+
+# Extract word frequencies...
+tdm <- TermDocumentMatrix(acq)
+m <- as.matrix(tdm)
+v <- sort(rowSums(m),decreasing=TRUE)
+d <- data.table(word = names(v),freq=v,key="word")
+
+# dict = data.table(read.csv("dictionaries//stemReplacementDictionary.csv"),key='word')
+# cloudStats = dict[d]
+
+wordcloud(d$word, d$freq, scale=c(4,1), max.words=200, min.freq=10, random.order=FALSE, 
+          rot.per=0, fixed.asp=TRUE, use.r.layout=FALSE, colors=brewer.pal(9, "Reds"), random.color=FALSE)
+```
+
+

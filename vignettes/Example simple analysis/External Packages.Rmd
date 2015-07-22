@@ -1,0 +1,115 @@
+External Packages
+========================================================
+
+## Rgraphviz
+To plot a document term matrix you need Rgraphviz from the Bioconductor project, which can be installed as so
+```{r}
+if(!require(Rgraphviz)){
+  source("http://bioconductor.org/biocLite.R")
+  biocLite("Rgraphviz")
+}
+```
+
+Now we can get our DocumentTermMatrix for the whole corpus and plot term correlations between documents for the most frequent words
+```{r}
+data("acq")
+acq_dtm<- TermDocumentMatrix(acq,
+                         control = list(removePunctuation = TRUE,
+                                        removeNumbers = TRUE,
+                                        stopwords = TRUE))
+
+freq_terms<-findFreqTerms(acq_dtm,lowfreq=40)
+
+plot(acq_dtm,
+     terms=freq_terms,
+     corThreshold = 0.2,
+     weighting = TRUE)
+```
+
+
+## tm
+`tm` is a text mining package providing base functionality for many other linguistics packages in R. The following is a guide to the main analysis function available in the package, carrying on the analysis carried out previously.
+
+Find terms that correlate highly with the most frequent terms:
+```{r}
+findAssocs(acq_dtm,freq_terms,corlimit=0.7)
+```
+
+Could use in built `tm_term_score` function to calculate sentiment. Accepts dictionaries as arguments.
+```{r}
+tm_term_score(acq[[1]],c("company","change"))
+```
+
+Tokenizers:
+```{r}
+head(MC_tokenizer(acq[[1]]),20)
+head(scan_tokenizer(acq[[1]]),20)
+```
+
+
+
+### Zipf's law and Heap's law
+```{r}
+Zipf_plot(acq_dtm)
+```
+
+*Taken from the tm docs:*
+Zipf’s law (e.g., http://en.wikipedia.org/wiki/Zipf%27s_law) states that given some corpus of natural language utterances, the frequency of any word is inversely proportional to its rank in the frequency table, or, more generally, that the PMF (Probability Mass Function) of the term frequencies is of the form $ck^{-\beta}$ *ck^-β*, where k is the rank of the term (taken from the most to the least frequent one). Thus the most frequent word will occur approximately twice as often as the second most frequent word, three times as often as the third most frequent word, etc.. We can conveniently explore the degree to which the law holds by plotting the logarithm of the frequency against the logarithm of the rank, and inspecting the goodness of ﬁt of a linear model.
+
+
+```{r}
+Heaps_plot(acq_dtm)
+```
+
+*Taken from the tm docs:*
+Heaps’ law (e.g., http://en.wikipedia.org/wiki/Heaps%27_law) states that the vocabulary size V (i.e., the number of different terms employed) grows polynomially with the text size T (the total number of terms in the texts), so that ${V}={c}{T}^{\beta}$ *V=cT^β*. We can conveniently explore the degree to which the law holds by plotting log(V ) against log(T), and inspecting the goodness of ﬁt of a linear model.
+
+## tau
+`tau` package contains the textcnt method for counting ngrams within strings:
+```{r echo=FALSE, warning=FALSE, results='hide'}
+if(!require(tau)){
+  install.packages("tau")
+}
+
+library(tau)
+```
+```{r}
+## the classic
+txt <- "The quick brown fox jumps over the lazy dog."
+
+# frequency count of ngrams with max length 2
+textcnt(txt, method = "ngram", n=2L)
+# frequency count of prefixes with max length 5
+textcnt(txt, method = "prefix", n = 5L)
+
+# textcnt class showing frequencies of suffixes, where frequency is greater than 1
+r <- textcnt(txt, method = "suffix", lower = 1L)
+data.frame(counts = unclass(r), size = nchar(names(r)))
+format(r)
+
+# frequency of word sequences with length 2
+textcnt(txt, method = "string", n=2L)
+
+## split in to alphabet and count
+textcnt(txt, split = "", method = "string", n = 1L)
+
+## subset first 5 words
+textcnt(txt, method = "string", words = 5L, n = 1L)  
+```
+
+## OpenNLP
+`OpenNLP` package provides an interface to the Apache OpenNLP tools written in Java. Unfortunately it cannot be installed on this users machine at present due to conflicts in Java 64 and 32 bit versions.
+
+You first need to get rJava loaded correctly, which requires you to set your JAVA_HOME path to a jdk installation. My path is shown below, however the location or version may be different on other machines. Unfortunately this still does not solve all dependency issues.
+
+```{r}
+# Sys.setenv(JAVA_HOME="C://Program Files//Java//jdk1.7.0_40")
+# library(rJava)
+# 
+# if(!require()){
+#   install.packages("C://dev//DataLab//Narrative//inst//packages//openNLPdata_1.5.3-1.zip",repos=NULL,type="source")
+#   install.packages("C://dev//DataLab//Narrative//inst//packages//openNLP_0.2-3.zip",repos=NULL,type="source")
+# }
+# 
+# library(openNLP)
+```

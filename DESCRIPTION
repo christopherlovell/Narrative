@@ -1,0 +1,24 @@
+Package: Narrative
+Type: Package
+Title: Time series analysis of corpora
+Version: 0.2
+Date: 2015-07-02
+Authors@R: person("Christopher","Lovell",email = "chrisl1991@hotmail.co.uk",role = c("aut", "cre"))
+Maintainer: Christopher Lovell <chrisl1991@hotmail.co.uk>
+Description: Time series analysis of corpora
+Depends:
+    R (>= 3.1.1)
+License: GPL (>= 2)
+LinkingTo: Rcpp
+LazyData: true
+VignetteBuilder: R.rsp
+Imports: 
+    Rcpp (>= 0.11.6),
+    tm (>= 0.6.1),
+    tools,
+    xts,
+    zoo,
+    openNLP,
+    reshape2
+Suggests:
+    R.rsp

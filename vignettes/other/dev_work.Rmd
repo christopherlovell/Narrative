@@ -1,0 +1,327 @@
+Dev Work
+========================================================
+
+## Set up
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+if(!require(XML)){install.packages("XML")}
+if(!require(ggplot2)){install.packages("ggplot2")}
+if(!require(tm)){install.packages("tm")}
+if(!require(openNLPmodels.en)){install.packages("openNLPmodels.en")}
+if(!require(openNLP)){install.packages("openNLP")}
+
+Sys.setenv(JAVA_HOME="C://Program Files//Java//jdk1.7.0_40")
+library(rJava)
+#library(qdap)
+
+wd<-"C://dev//Datalab//Narrative"
+setwd(wd)  
+
+load(file=paste(wd,"//data//Agencies//matched_materials.RData",sep=""))
+```
+
+Get demo acquisition data, `acq`, from `tm` package.
+```{r warning=FALSE, results='hide'}
+data("acq")
+```
+
+## Dev
+
+text meta data
+```{r}
+directory<-paste(wd,"//inst//extdata//Co-op Docs//corp_2015-01-16_17-42",sep="")
+```
+
+Sentence parsing
+```{r}
+
+data("acq")
+# acq<-tm_map(acq,content_transformer(removeNumbers))
+# acq<-tm_map(acq,content_transformer(removePunctuation))
+
+# qdap provides similar functionality but cannot distinguish periods within numbers
+# openNLP identifies these and transforms them to commas before running the sentence identifier
+
+# if you get errors, load ggplot2 BEFORE openNLP, as they both use the annotate method
+# to unload a package use detach("package:ggplot2", unload=TRUE)
+sentence_annotator<- function(text,lang="en"){
+  text<-as.String(text)
+  sentences<-annotate(text,Maxent_Sent_Token_Annotator(language="en"))
+  return(text[sentences])
+}
+
+text<-lapply(acq,content)
+docs.annotated<-lapply(text,sentence_annotator)
+acq.annotated<-Corpus(VectorSource(docs.annotated))
+
+acq.annotated<-tm_map(acq.annotated,content_transformer(removeNumbers))
+acq.annotated<-tm_map(acq.annotated,content_transformer(removePunctuation))
+
+tdm<-TermDocumentMatrix(acq.annotated)
+
+
+## paragraph parsing
+
+load(file=paste(wd,"//data//Agencies//matched_materials.RData",sep=""))
+
+doc<-1
+para.breaks<-gregexpr("\t\t\t",as.String(corp[[doc]]$content))
+substr(as.String(corp[[doc]]),para.breaks[[1]][1],para.breaks[[1]][length(para.breaks[[1]])])
+
+tokens<-annotate(text,list(Maxent_Sent_Token_Annotator(language="en"),Maxent_Word_Token_Annotator(language="en"),Maxent_POS_Tag_Annotator(language="en")))
+
+text[sentences[1]]
+text[tokens[10]]
+text[tokens[5]]
+```
+
+# vector space model
+```{r}
+tfidf.matrix<-as.matrix(weightTfIdf(tdm.1))
+
+tfidf.matrix<-scale(tfidf.matrix, center = FALSE, scale = sqrt(colSums(tfidf.matrix^2)))
+
+query.vector <- tfidf.matrix[,10]
+
+doc.scores<-as.data.frame(t(query.vector) %*% tfidf.matrix)
+doc.scores<-doc.scores[order(doc.scores,decreasing = T)]
+
+doc.scores[1:10]
+
+names(doc.scores[1:10])
+
+corp.clean[[1:2]]
+```
+
+# association rule mining
+```{r}
+if(!require(cba)){install.packages("cba")}
+
+x<-as.matrix(weightBin(tdm.1))
+
+x.subset<-x[1000:1100,1:100]
+
+proximus(x.subset,max.radius=2)
+
+library(arules)
+rules<-apriori(x.subset,parameter = list(minlen=2,supp=0.1,conf=0.4))
+```
+
+# wordFrequencyAbsolute
+```{r}
+head(wordFrequencyAbsolute(acq))
+
+head(weightCorpus(acq[1],func="tf"))
+```
+
+test inputs to functions
+```{r}
+?inherits
+```
+
+word clouds
+```{r}
+if (!require("tm",character.only = TRUE))
+{
+  install.packages("tm",dep=TRUE)
+}
+if (!require("wordcloud",character.only = TRUE))
+{
+  install.packages("wordcloud",dep=TRUE)
+}
+if (!require("data.table",character.only = TRUE))
+{
+  install.packages("data.table",dep=TRUE)
+}
+
+# try removing lib.loc argument if library load errors occur
+library("wordcloud", lib.loc="~/R/win-library/3.1")
+library("tm", lib.loc="~/R/win-library/3.1")
+library("data.table", lib.loc="~/R/win-library/3.1")
+
+
+# Extract word frequencies...
+tdm <- TermDocumentMatrix(acq);
+m <- as.matrix(tdm);
+v <- sort(rowSums(m),decreasing=TRUE);
+d <- data.table(word = names(v),freq=v,key="word")
+
+# write.csv(d, file = "Output\\wordlist.csv", row.names=FALSE);
+
+# Re-label stemmer output based on input dictionary (dictionary must be tuned to the Corpus of documents you are analysing)
+dict = data.table(read.csv("dictionaries//stemReplacementDictionary.csv"),key='word');
+cloudStats = dict[d];
+
+# cloud image will be written to this file within the Output sub-directory
+# there are various options here for different output formats and sizes
+png("output\\wordcloud_withStemming_manyStopwords.png", width=12,height=9,units='in',res=300); 
+
+# loads of options on the call to wordcloud, to customise the output image
+# type ?wordcloud for further information 
+wordcloud(cloudStats$displayText, cloudStats$freq, scale=c(4,0.1), max.words=200, min.freq=10, random.order=FALSE, 
+          rot.per=0, fixed.asp=TRUE, use.r.layout=FALSE, colors=brewer.pal(9, "Reds"), random.color=FALSE)
+# wordcloud(rawDocs, scale=c(4,0.5), max.words=200, random.order=TRUE, 
+#           rot.per=0.2, fixed.asp=TRUE, use.r.layout=FALSE, colors=brewer.pal(12, "Paired"))
+
+dev.off();
+
+
+# ... and the total number of words
+
+# c = colSums(m);
+
+
+```
+
+
+
+# Latent Semantic Analysis
+
+[Analyze Text Similarity with R: Latent Semantic Analysis and Multidimentional Scaling](http://meefen.github.io/blog/2013/03/11/analyze-text-similarity-in-r-latent-semantic-analysis-and-multidimentional-scaling/)
+```{r}
+library(lsa)
+n <- 600
+s <- sample.int(length(corp), size=1000, replace = F)
+td.mat<-as.matrix(tdm.1[,s])
+
+# MDS with raw TDM
+# dist.mat <- dist(t(td.mat),)
+# 
+# fit <- cmdscale(dist.mat,eig=T,k=2)
+# points <- data.frame(x=fit$points[,1],y=fit$points[,2])
+# 
+# p <- ggplot(points,aes(x=x,y=y))
+# p <- p+geom_point(data = points,aes(x = x,y = y, color = as.factor(unlist(meta(corp.clean[1:n], tag = "AgencyCode")))),size = 3)
+# p
+
+
+# MDS with LSA
+td.mat<-td.mat[rowSums(td.mat)>0,]
+td.mat.lsa <- lsa::lw_bintf(td.mat) * lsa::gw_idf(td.mat)  # weighting
+#td.mat.lsa <- lsa::entropy(td.mat)
+lsaSpace <- lsa::lsa(td.mat.lsa)  # create LSA space
+dist.mat.lsa <- dist(t(as.textmatrix(lsaSpace)))  # compute distance matrix
+
+fit <- cmdscale(dist.mat.lsa, eig = TRUE, k = 2)
+points <- data.frame(x = fit$points[, 1], y = fit$points[, 2])
+
+p <- ggplot(points)
+#p <- p + geom_path(data = points,aes(x=x,y=y))
+p <- p + geom_point(data = points, aes(x = x, y = y, color=as.factor(substr(unlist(meta(corp.clean[s],tag="SIC")),1,2))))
+#p <- p + geom_point(data=points,aes(x=x,y=y,color=as.factor(format(do.call(c,meta(corp.clean[s],tag="ActualDateDisplay")),"%Y"))))
+p <- p +theme_bw() + theme(legend.title=element_blank())
+p
+```
+
+LDA
+```{r}
+library(topicmodels)
+library(LDAvis)
+
+stop.words<-c("visit","year","increase","last","costs","bank","pay","company","demand","company","employment","next","agents","prices")
+
+s <- sample.int(length(corp), size=2000, replace = F)
+
+td.mat<-as.matrix(tdm.1[!(Terms(tdm.1) %in% stop.words),s])
+td.mat<-td.mat[rowSums(td.mat)>0,]
+
+k<-8
+lda <- topicmodels::LDA(t(td.mat), k)
+
+topicmodels::terms(lda,20)
+topicmodels::topics(lda,1)
+
+write.csv(topicmodels::terms(lda,20),file = "C:\\Users\\324240\\Desktop\\topics.csv")
+
+phi<-topicmodels::posterior(lda)$terms
+theta<-topicmodels::posterior(lda)$topics
+doc.length<-colSums(td.mat)
+term.frequency<-rowSums(td.mat)
+vocab<-Terms(as.TermDocumentMatrix(td.mat,weighting = weightBin))
+
+LDAvis.json <- LDAvis::createJSON(phi = phi,theta = theta,doc.length = doc.length,vocab = vocab,term.frequency = term.frequency)
+
+write.table(LDAvis.json[[1]],file = "C://Users//324240//Desktop//lda.json")
+LDAvis::serVis(LDAvis.json,out.dir = paste(wd,"//vignettes//agencies analysis//output",sep=""))
+LDAvis::serVis(LDAvis.json)
+```
+
+
+## Classification (Naive Bayes)
+
+[Wiki guide](http://en.wikibooks.org/wiki/Data_Mining_Algorithms_In_R/Classification/Na%C3%AFve_Bayes)
+[e1071](http://cran.r-project.org/web/packages/e1071/index.html)
+
+
+[multiclass naive bayes](http://machinomics.blogspot.co.uk/2012/03/multiclass-svm-with-e1071_20.html)
+
+Doesn't work for text data....
+
+```{r}
+library(e1071)
+library(caret)
+
+n<-300
+tfidf.limit<-.1
+
+tdm.1.tfidf <- tdm.1[colSums(as.matrix(t(weightTfIdf(tdm.1[,1:n]))))>tfidf.limit,1:n]  # filter tdm by high tf-idf weight
+#tdm.1.tfidf.test <- tdm.1[colSums(as.matrix(t(weightTfIdf(tdm.1[,101:200]))))>tfidf.limit,101:200]  # filter tdm by high tf-idf weight
+
+classes<-as.factor(unlist(meta(corp.clean[1:n],tag="DemandScore")))
+classes[is.na(classes)]<-0
+predictors<-as.data.frame(as.matrix(t(tdm.1.tfidf)))
+
+dat <- cbind(predictors,classes)
+dat <- rbind(dat,dat,dat,dat)
+
+#classifier <- e1071::naiveBayes(x = predictors)
+classifier <- e1071::naiveBayes(classes ~ .,data = dat)
+
+prediction <- predict(classifier,predictors)
+
+table(prediction,classes)
+```
+
+Working example with iris data set
+
+```{r}
+data(iris)
+trainIndex <- caret::createDataPartition(iris$Species, p = .8, list = F)
+
+classifier2<-naiveBayes(iris[trainIndex,1:4], iris[,5])
+table(predict(classifier2, iris[-trainIndex,-5]), iris[-trainIndex,5])
+```
+
+
+## KNN text classifier
+
+```{r}
+library(class)
+library(caret)
+
+tfidf.limit<-.1
+
+# to be continued
+# meta(corp,tag="ActualDateDisplay")>as.Date("2011-01-01")
+# train.index <- sample(ncol(tdm.1), size = 1000, ceiling(nrow(predictors)*.7),replace = F)
+# test.index <- sample(ncol(tdm.1), size = 1000, ceiling(nrow(predictors)*.7),replace = F)
+
+# filter tdm by high tf-idf weight
+predictors <- as.data.frame(as.matrix(t(tdm.1[colSums(as.matrix(t(weightTfIdf(tdm.1[train.index]))))>tfidf.limit,train.index])))
+
+classes<-as.factor(unlist(meta(corp.clean[train.index],tag="ExposureType")))
+classes[is.na(classes)]<-0
+
+train.index <- sample(nrow(predictors), ceiling(nrow(predictors)*.7))
+
+knn.pred <- class::knn(train = predictors[train.index,], test = predictors[-train.index,], cl = classes[train.index])
+conf.matrix <- table(knn.pred,classes[-train.index])
+conf.matrix
+
+accuracy <- sum(diag(conf.matrix))/ length(-train.index) * 100
+cat(paste("accuracy: ",round(accuracy,2),"%","",sep=""))
+```
+
+
+
+
+

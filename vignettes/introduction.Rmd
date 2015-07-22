@@ -1,0 +1,121 @@
+---
+title: "Introduction to Narrative"
+author: "Christopher Lovell"
+date: "July 6, 2015"
+output: 
+  pdf_document: 
+    latex_engine: xelatex
+---
+
+### Introduction
+The *Narrative* package is designed to extend on the ubiquitous *tm* package, making time series analysis of corpora easier, as well additional functionality.
+
+If you have not done any text mining in R before I recommend reading the [tm introductory](http://cran.r-project.org/web/packages/tm/vignettes/tm.pdf) vignette first. The following document provides only a quick introduction to the *tm* package before moving on to demonstrate the additional features provided by *Narrative*. 
+
+
+### tm
+For this demo we'll be using a corpus of Reuters documents provided with the *tm* package. To load your own data, Narrative provides the `readSeparateText()` function for reading a directory full of .txt files. This is discussed in detail later.
+
+```{r}
+library(tm)
+reut21578 <- system.file("texts", "crude", package = "tm")
+reuters <- VCorpus(DirSource(reut21578),readerControl = list(reader = readReut21578XMLasPlain))
+```
+
+```{r}
+reuters
+```
+
+The corpus contains 20 documents. To look at a document in detail, use `as.character()`.
+
+```{r}
+as.character(reuters[[1]])
+```
+
+The meta data contains the title, language, some high level topics, place of origin, and a time stamp; this will be important later when we begin to use the *Narrative* package.
+
+```{r}
+meta(reuters[[1]])
+```
+
+After reading in your data the next stage is to cleanse it and stem it. *tm* provides a numnber of functions for doing so. 
+
+```{r}
+reuters <- tm_map(reuters, content_transformer(tolower))
+reuters <- tm_map(reuters, content_transformer(removeNumbers))
+reuters <- tm_map(reuters, content_transformer(removePunctuation))
+reuters <- tm_map(reuters, content_transformer(removeWords), stopwords("english"))
+reuters <- tm_map(reuters, stemDocument)
+reuters <- tm_map(reuters, content_transformer(stripWhitespace))
+```
+
+```{r}
+as.character(reuters[[1]])
+```
+
+An incredibly useful representation of the corpus is as a *document term matrix*. This is a $td$ matrix, where $t$ is a vector of all terms used in the corpus, and $d$ is a vector of all documents in the corpus. Each row then represents the frequency of a term in each document, and each row shows a documents constituent terms and their frequency.
+
+```{r}
+dtm <- DocumentTermMatrix(reuters)
+inspect(dtm[1:5,1:20])
+```
+
+Some useful operations can be applied to the term document matrix, such as finding the most frequent terms, or terms that are highly correlated.
+
+```{r}
+findFreqTerms(dtm,lowfreq = 15)
+findAssocs(dtm, "opec" ,corlimit = 0.85)
+```
+
+
+### Narrative
+Now that I have summarised the basic text mining functionality provided by *tm*, I'll move on to the additional functionality written in *Narrative*. I will use the `Narrative::function` syntax to distinguish between functions written in Narrative or other packages.
+
+Word and character counts are often useful for normalising statistics generated from your corpus. We can generate vectors of each using the `characterCount` and `wordCount` functions. `characterCount` accepts the corpus as an argument, whereas `wordCount` uses a document term matrix.
+
+```{r}
+wc <- Narrative::wordCount(dtm)
+cc <- Narrative::characterCount(reuters)
+```
+
+Each function returns a numeric vector giving the word or character count for each document in our corpus. These vectors can be added to our corpus metadata using the `addToMetaData` function.
+
+```{r}
+reuters <- Narrative::addToMetaData(corpus = reuters, vector = wc, tag = "word_count")
+reuters <- Narrative::addToMetaData(corpus = reuters, vector = cc, tag = "character_count")
+meta(reuters[[1]])
+```
+
+#### IO
+Narrative provides a couple of IO functions that make handling meta data associated with a corpus easier. To demonstrate, I'll first write our *reuters* corpus to disk using the `saveCorpus` function. This function takes a corpus, and writes it to the specified directory, along with an .Rdata file containing all associated metadata.
+
+```{r}
+library(Narrative)
+Narrative::saveCorpus(reuters,"C:\\Users\\324240\\Desktop\\test_files", save_metadata = T)
+```
+
+We can then read this data back in to R, including the metadata, using the `readSeparateText` function.
+
+```{r}
+reuters2 <- Narrative::readSeparateText("C:\\Users\\324240\\Desktop\\test_files",load_metadata = T,metadata_filename = "reuters_metadata.RDS")
+```
+
+
+#### Term Frequency Analysis
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
