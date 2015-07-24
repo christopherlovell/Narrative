@@ -9,7 +9,7 @@ loadMetaData(corpus, metadata)
 \arguments{
 \item{corpus}{tm corpus object}
 
-\item{list}{of lists, where each higher level list item is a named meta data field,
+\item{metadata}{list of lists, where each higher level list item is a named meta data field,
 and each lower level list is of equal length to the corpus, and contains values for the given field. `extractMetaData()` produces
 compatible output.}
 }

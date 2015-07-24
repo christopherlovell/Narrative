@@ -176,7 +176,7 @@ extractMetaData <- function(corpus) {
 #'Load meta data on to a corpus
 #'
 #'@param corpus tm corpus object
-#'@param list of lists, where each higher level list item is a named meta data field, 
+#'@param metadata list of lists, where each higher level list item is a named meta data field, 
 #'and each lower level list is of equal length to the corpus, and contains values for the given field. `extractMetaData()` produces 
 #'compatible output.
 loadMetaData <- function(corpus,metadata){

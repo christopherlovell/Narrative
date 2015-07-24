@@ -55,13 +55,15 @@ wordCount <- function(x){
 #'Annotate corpus
 #'
 #'Apply annotations to documents.
-narrativeAnnotator <- function(corpus,annotator="sentence",meta=T){
+#'@param corpus tm Corpus object
+#'@param annotator specify "sentence" or "word" tokenisation, or provide your own annotator function
+narrativeAnnotator <- function(corpus, annotator="sentence", metadata = T){
   if(annotator=="sentence"){
     annotator.function=openNLP::Maxent_Sent_Token_Annotator
   }else if(annotator=="word"){
     annotator.function=openNLP::Maxent_Word_Token_Annotator
   }else{
-    stop("Please provide a valid annotator type")
+    annotator.function = annotator
   }
   
   annotator <- function(text, lang = "en"){
@@ -76,44 +78,39 @@ narrativeAnnotator <- function(corpus,annotator="sentence",meta=T){
   
   text <- lapply(corpus, function(x) x$content)
   docs.annotated <- lapply(text, annotator)
-  corpus.annotated <- tm::Corpus(VectorSource(docs.annotated))
+  corpus.annotated <- tm::Corpus(tm::VectorSource(docs.annotated))
     
-  if(meta){
-    for(name in names(NLP::meta(corpus[[1]]))){
-      corpus.annotated <- Narrative::addToMetaData(corpus.annotated, vector = NLP::meta(corpus,tag=name), tag = name)
-    }
+  if(metadata){
+    md <- Narrative::extractMetaData(corpus = corpus)
+    corpus.annotated <- Narrative::loadMetaData(corpus.annotated, metadata = md)
   }
   
   return(corpus.annotated)
 }
 
-#'Search Context Analyser
+#'Annotated corpus search
 #'
-contextAnalyser<-function(corpus, terms, search.vector = NA, width=0){  
-  # filter out docs that return search
-  if(!is.na(search.vector)){
-    corpus.search<-corpus[search.vector>0]  
-  }else{
-    corpus.search <- corpus
-  }
-  
+#'@param corpus Corpus object
+#'@param terms character vector of search terms you wish to search for 
+#'@param width neighbouring sentences to be included
+annotatorSearch<-function(annotated.corpus, terms, width = 0){  
   # regex matching sentences and return index
-  matches<-lapply(corpus.search,function(x) which(base::grepl(terms,x[[1]])))
+  matches <- lapply(annotated.corpus, function(x) which(base::grepl(terms, x[[1]])))
   
   # add width to matched sentence index
   if(width>0){
-    matches<-lapply(matches,function(x) append(x,c(x+width,x-width)))
-    matches<-lapply(matches,function(x) unique(x))
+    matches <- lapply(matches,function(x) append(x, c(x + width, x - width)))
+    matches <- lapply(matches,function(x) unique(x))  # remove duplicate sentences
   }
     
   # grab corresponding sentences in to nested list
-  matched.sentences<-base::data.frame()
-  i<-1
-  while(i<length(corpus.search)){
-    matched.sentences<-append(matched.sentences,list(corpus.search[[i]][[1]][matches[[i]]]))
-    i<-i+1
+  matched.sentences <- base::data.frame()
+  i <- 1
+  while(i <= length(annotated.corpus)){
+    matched.sentences <- append(matched.sentences, list(annotated.corpus[[i]][[1]][matches[[i]]]))
+    i <- i + 1
   }
-
+  
   return(matched.sentences)
 }
 
@@ -125,43 +122,34 @@ contextAnalyser<-function(corpus, terms, search.vector = NA, width=0){
 #' @param dict.negative Text document containing negative words to be matched
 #' @param normalisation.meta document level corpus meta data field containing value to normalise over.
 #corpusSentiment <- function(corpus,dict.positive,dict.negative,normalisation.meta=NULL){
-corpusSentiment <- function(tdm, corpus, dict.positive, dict.negative, normalisation.meta = NULL){
+corpusSentiment <- function(tdm, dict.positive, dict.negative, normalisation.meta = NULL){
   
-  if(class(corpus)[2]!="Corpus"){
-    stop("Please provide a valid Corpus object to corpus")
-  }else if(class(tdm)[1]!="TermDocumentMatrix"){
+  if(class(tdm)[1]!="TermDocumentMatrix"){
     stop("Please provide a valid TermDocumentMatrix object to tdm")
-  }else if(class(dict.positive)!="character" | class(dict.negative)!="character"){
+  }else if(class(dict.positive) != "character" | class(dict.negative) != "character"){
     stop("Please provide valid character vectors to dict.positive and dict.negative")
   }
   
-  # check for normalisation.meta. If NULL, warn user that we're going to calculate word counts by default and assign to meta data
-  if(is.null(normalisation.meta)){
+  if(is.null(normalisation.meta)){  # check for normalisation.meta. If NULL, warn user that we're going to calculate word counts by default and assign to meta data
     readline(prompt="No normalisation meta data provided. Narrative will automatically generate word counts for each document\
              to normalise against. If you wish to provide you own normalisation field, exit now. Otherwise, press [enter] to continue")
-    v.word<-Narrative::wordCount(t(tdm))
-    corpus<-Narrative::addToMetaData(corpus,v.word,"count.word")
-    normalisation.meta="count.word"
-    rm(v.word)
-  }else if(!(normalisation.meta %in% names(meta(corpus[[1]])) )){
-    # if exists, check that it exists in Corpus. If not, stop.
-    stop("Please provide a normalisation meta data field that exists in the corpus")
-  }  
+    normalisation.meta <- Narrative::wordCount(t(tdm))
+  }
   
-  tdm.terms<-tm::Terms(tdm)
+  tdm.terms <- tm::Terms(tdm)
   
-  dict.positive.filter<-dict.positive[dict.positive %in% tdm.terms]
-  dict.negative.filter<-dict.negative[dict.negative %in% tdm.terms]
+  dict.positive.filter <- dict.positive[dict.positive %in% tdm.terms]
+  dict.negative.filter <- dict.negative[dict.negative %in% tdm.terms]
   
-  tdm.positive<-tdm[dict.positive.filter,]
-  tdm.negative<-tdm[dict.negative.filter,]
+  tdm.positive <- tdm[dict.positive.filter,]
+  tdm.negative <- tdm[dict.negative.filter,]
   
-  positive.vector<-base::colSums(as.matrix(tdm.positive))
-  negative.vector<-base::colSums(as.matrix(tdm.negative))
+  positive.vector <- base::colSums(as.matrix(tdm.positive))
+  negative.vector <- base::colSums(as.matrix(tdm.negative))
   
-  sentiment<-((positive.vector-negative.vector)/unlist(NLP::meta(corpus,tag=normalisation.meta)))
+  sentiment <- ((positive.vector-negative.vector) / normalisation.meta)
   
-  return(base::cbind(sentiment,positive.vector,negative.vector))
+  return(base::cbind(sentiment, positive.vector, negative.vector))
 }
 
 #'Generate Term Document Matrices 
@@ -190,25 +178,13 @@ tdmGenerator <- function(length, corpus, control_params = c()){
 #'@param corpus corpus object to transform
 .nGramTokenizerGenerator <- function(length, corpus, control_params = c()){
   docs <- unlist(lapply(corpus,function(x) paste(as.character(x), collapse=" ")))
-  reshape2::acast(tdm_generator(docs,length), term~doc, value.var = "count", fill=0)  # C++ tdm generator function call 
+  reshape2::acast(.tdm_generator(docs,length), term~doc, value.var = "count", fill=0)  # C++ tdm generator function call 
 }
 
-#'Corpus Proportion
-#'
-#'Given a matrix of frequency scores return the proportion of documents that matched each term 
-#'in the matrix.
-#'@param mat matrix of frequency scores
-corpusProportion <- function(mat){
-  apply(mat,2,function(x){  # loop over term count matrix and return matched documents as a proportion of document count
-    tab<-as.data.frame(table(x))  # frequency counts as data frame
-    sum(tab[tab$x!=0,]$Freq)/sum(tab$Freq)  # frequency counts greater than zero over number of documents
-  })
-}
-
-#'Weight a Term Document Matrix
+#'Sort a Term Document Matrix by term weight
 #'
 #'Returns a nested list of terms for each document, sorted by weight.
-#'@param corpus corpus object to be weighted
+#'@param x document term or term document matrix object to be weighted
 weightSort <- function(x){
   if(class(x)[1]=="DocumentTermMatrix"){
     x <- t(x)
@@ -228,114 +204,6 @@ weightSort <- function(x){
   docs
 }
 
-#'Aggregated Time Series Objects by Meta Data
-#'
-#'Returns an xts time series object aggregated over the specified time window.
-#'NAs are implicitly removed during creation of the xts object
-#'@param corpus corpus to plot over
-#'@param meta_field document level meta data field over which to aggregate
-#'@param meta_time document level meta data field that defines time
-#'@param time_aggregate time resolution to aggregate over. Can be one of the following:
-#'\itemize{
-##'  \item{none - just returns un aggregated data, with NAs filtered}
-##'  \item{daily}
-##'  \item{weekly}
-##'  \item{monthly}
-##'  \item{quarterly}
-##'  \item{yearly}
-##' }
-#'@param aggregate_function *optional* function to apply to aggregated fields. default=sum
-timeSeriesNarrative <- function(corpus,
-                                meta_time,
-                                time_aggregate,
-                                meta_field,
-                                meta_normalisation_field=F,
-                                aggregate_function=sum){
-  
-  scores<-data.frame(do.call(c,meta(corpus,meta_time)),unlist(meta(corpus,meta_field)))
-  scores<-na.omit(scores)
-  names(scores)<-c("date","score")
-  xts.scores<-xts::xts(scores$score,order.by=scores$date)
-  
-  if(time_aggregate=="none"){return(xts.scores) # apply no aggregation, and therefore no normalisation
-  }else if(time_aggregate=="daily"){apply_aggregate<-xts::apply.daily
-  }else if(time_aggregate=="weekly"){apply_aggregate<-xts::apply.weekly
-  }else if(time_aggregate=="monthly"){apply_aggregate<-xts::apply.monthly
-  }else if(time_aggregate=="quarterly"){apply_aggregate<-xts::apply.quarterly
-  }else if(time_aggregate=="yearly"){apply_aggregate<-xts::apply.yearly
-  }else{stop("No time aggregate value provided")}
-  
-  if(meta_normalisation_field==T){
-    norm.aggregate<-apply_aggregate(xts.scores,length)
-  }else if(meta_normalisation_field==F){
-    norm.aggregate=1
-  }else{
-    normalisation<-data.frame(do.call(c,NLP::meta(corpus,meta_time)),unlist(NLP::meta(corpus,meta_normalisation_field)))
-    normalisation<-na.omit(normalisation)
-    names(normalisation)<-c("date","normalisation")
-    xts.normalisation<-xts::xts(normalisation$normalisation,order.by=normalisation$date)
-    norm.aggregate<-apply_aggregate(xts.normalisation,sum)
-  }
-  
-  return(apply_aggregate(xts.scores,aggregate_function)/norm.aggregate)
-}
-
-#'(DEPRECATED) Normalisation Generator
-#'
-#'Generates a data frame of common normalisation metrics 
-#'(term, character, word and document counts) for a given corpus
-#'over aggregated time periods.
-#'@param corpus corpus object
-#'@param meta_time document level meta data field that defines time
-#'@param time_aggregate time resolution to aggregate over. Can be one of the following:
-#'\itemize{
-##'  \item{none - just returns un aggregated data, with NAs filtered}
-##'  \item{daily}
-##'  \item{weekly}
-##'  \item{monthly}
-##'  \item{quarterly}
-##'  \item{yearly}
-##' }
-timeNormalise <- function(corpus,meta_time,time_aggregate,date.sequence=NULL){
-  if(class(date.sequence)=="NULL"){
-    date.range<-range(do.call(c,NLP::meta(corpus,meta_time)))
-    
-    date.sequence<-seq(date.range[1],
-                       date.range[2],
-                       # take "ly" characters off time_aggregate value
-                       substr(time_aggregate,1,nchar(time_aggregate)-2))
-  }
-  
-  term.count<-data.frame()
-  i=1
-  while(i<=length(date.sequence)){
-    print(i)
-    # test to ensure we don't exclude final date from filter
-    if(i==(length(date.sequence)-1)){
-      # less than *or equal* to last date
-      temp.corp<-NLP::tm_filter(corpus,FUN = function(x) tm::meta(x,meta_time)>=date.sequence[i] & NLP::meta(x,meta_time)<=date.sequence[i+1])
-    }else{
-      temp.corp<-NLP::tm_filter(corpus,FUN = function(x) tm::meta(x,meta_time)>=date.sequence[i] & NLP::meta(x,meta_time)<date.sequence[i+1])
-    }
-    
-    dtm.temp<-tm::DocumentTermMatrix(temp.corp)
-    #terms.count<-nTerms(dtm.temp)
-    #words.count<-sum(wordCount(dtm.temp))
-    #characters.count<-sum(characterCount(temp.corp))
-    term.count<-rbind(term.count,
-                      data.frame(tm::nTerms(dtm.temp),
-                                 sum(Narrative::wordCount(dtm.temp)),
-                                 sum(Narrative::characterCount(temp.corp)),
-                                 length(temp.corp),
-                                 date.sequence[i+1]
-                      ))
-    i<-i+1
-  }
-  rm(temp.corp)
-  dimnames(term.count)[[2]]<-c("terms.n","words.n","characters.n","docs.n","date")
-  return(term.count)
-}
-
 #'Logical concatenation
 #'
 #'Concatenates rows of a search result matrix  according to a logical condition.
@@ -349,7 +217,7 @@ timeNormalise <- function(corpus,meta_time,time_aggregate,date.sequence=NULL){
 #'or a function specifying the normalisation of matching values. For example, if normalisation = sum, for an "OR"
 #'logical match all matches of each search term in each document will be summed and returned. If normalisation = min, 
 #'for an "AND" logical match the number of pairs of terms is returned.
-logicalMatch <- function(search,logic,normalisation="logical"){
+logicalMatch <- function(search, logic, FUN = NULL){
   if(logic=="AND"){
     logic.function=all
   }else if(logic=="OR"){
@@ -357,7 +225,7 @@ logicalMatch <- function(search,logic,normalisation="logical"){
   }
   matches.logical<-apply(search>0,1,logic.function)
   
-  if(is.character(normalisation) & typeof(normalisation)=="character"){
+  if(is.null(FUN)){
     return(matches.logical)
   }
   
@@ -365,7 +233,7 @@ logicalMatch <- function(search,logic,normalisation="logical"){
   i<-1
   while(i<=length(matches.logical)){
     if(matches.logical[i]){
-      and.match[i]<-normalisation(search[i,])
+      and.match[i]<-FUN(search[i,])
     }else{
       and.match[i]<-0
     }

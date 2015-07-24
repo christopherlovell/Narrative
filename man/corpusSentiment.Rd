@@ -4,17 +4,16 @@
 \alias{corpusSentiment}
 \title{Financial Narratives Sentiment}
 \usage{
-corpusSentiment(tdm, corpus, dict.positive, dict.negative,
-  normalisation.meta = NULL)
+corpusSentiment(tdm, dict.positive, dict.negative, normalisation.meta = NULL)
 }
 \arguments{
-\item{corpus}{corpus object}
-
 \item{dict.positive}{Text document containing positive words to be matched}
 
 \item{dict.negative}{Text document containing negative words to be matched}
 
 \item{normalisation.meta}{document level corpus meta data field containing value to normalise over.}
+
+\item{corpus}{corpus object}
 }
 \description{
 #Calculate sentiment of documents in a corpus using the sentiment calculator from Financial Narratives.

@@ -21,7 +21,7 @@ corpusAggregate(corpus, meta_time, time_aggregate, FUN, ...)
 Apply function over corpus within specified time periods, and return an aggregated xts object.
 For example, the following function calculates the number of unique terms in a given corpus:
 \code{FUN<-function(x){nTerms(DocumentTermMatrix(x))}}
-\code{corpusAggregate} splits the supplied corpus in to time bins, then applies the function to each
-individual bin.
+\code{corpusAggregate} splits the supplied corpus in to time periods, then applies the function to each
+individual period in isolation.
 }
 

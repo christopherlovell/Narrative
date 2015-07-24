@@ -9,8 +9,8 @@ NULL
 #'Apply function over corpus within specified time periods, and return an aggregated xts object.
 #'For example, the following function calculates the number of unique terms in a given corpus: 
 #'\code{FUN<-function(x){nTerms(DocumentTermMatrix(x))}}
-#'\code{corpusAggregate} splits the supplied corpus in to time bins, then applies the function to each
-#'individual bin.
+#'\code{corpusAggregate} splits the supplied corpus in to time periods, then applies the function to each
+#'individual period in isolation.
 #'@param corpus corpus object over which to aggregate
 #'@param meta_time meta data field containing time information
 #'@param time_aggregate period over which to aggregate. Can be one of the following: \{day,week,month,quarter,year\}
@@ -48,7 +48,7 @@ xtsGenerate <- function(time, value){
 #'Aggregate xts objects
 #'
 #'Returns an xts object aggregated and normalised over the given time window by the specified aggregation function
-xtsAggregate <- function(xts.scores, time_aggregate, aggregate_function = sum, normalisation){
+xtsAggregate <- function(xts.scores, time_aggregate, normalisation, aggregate_function = sum){
   
   if(time_aggregate == "none"){
     return(xts.scores) # apply no aggregation, and therefore no normalisation

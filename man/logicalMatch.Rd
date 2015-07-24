@@ -4,7 +4,7 @@
 \alias{logicalMatch}
 \title{Logical concatenation}
 \usage{
-logicalMatch(search, logic, normalisation = "logical")
+logicalMatch(search, logic, FUN = NULL)
 }
 \arguments{
 \item{search}{matrix of search results. Each column of results for a different term.}

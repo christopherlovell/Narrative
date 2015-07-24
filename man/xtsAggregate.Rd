@@ -4,8 +4,8 @@
 \alias{xtsAggregate}
 \title{Aggregate xts objects}
 \usage{
-xtsAggregate(xts.scores, time_aggregate, aggregate_function = sum,
-  normalisation)
+xtsAggregate(xts.scores, time_aggregate, normalisation,
+  aggregate_function = sum)
 }
 \description{
 Returns an xts object aggregated and normalised over the given time window by the specified aggregation function

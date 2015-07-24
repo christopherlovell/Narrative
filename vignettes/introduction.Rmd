@@ -5,13 +5,13 @@ date: "July 6, 2015"
 output: pdf_document
 ---
 
-### Introduction
+## Introduction
 The *Narrative* package is designed to extend on the ubiquitous *tm* package, making time series analysis of corpora easier, as well additional functionality.
 
 If you have not done any text mining in R before I recommend reading the [tm introductory](http://cran.r-project.org/web/packages/tm/vignettes/tm.pdf) vignette first. The following document provides only a quick introduction to the *tm* package before moving on to demonstrate the additional features provided by *Narrative*. 
 
 
-### tm
+## tm
 For this demo we'll be using a corpus of Reuters documents provided with the *tm* package. To load your own data, Narrative provides the `readSeparateText()` function for reading a directory full of .txt files. This is discussed in detail later.
 
 ```{r}
@@ -66,7 +66,7 @@ findAssocs(dtm, "opec" ,corlimit = 0.85)
 ```
 
 
-### Narrative
+## Narrative
 Now that I have summarised the basic text mining functionality provided by *tm*, I'll move on to the additional functionality written in *Narrative*. I will use the `Narrative::function` syntax to distinguish between functions written in Narrative or other packages.
 
 #### Word & Character Counts
@@ -79,7 +79,7 @@ cc <- Narrative::characterCount(reuters)
 
 Each function returns a numeric vector giving the word or character count for each document in our corpus.
 
-#### Meta data
+### Meta data
 These vectors can be added to our corpus metadata using the `addToMetaData` function.
 
 ```{r}
@@ -88,28 +88,35 @@ reuters <- Narrative::addToMetaData(corpus = reuters, vector = cc, tag = "charac
 meta(reuters[[1]])
 ```
 
-#### IO
+### IO
 Narrative provides a couple of IO functions that make handling meta data associated with a corpus easier. To demonstrate, I'll first write our *reuters* corpus to disk using the `saveCorpus` function. This function takes a corpus, and writes it to the specified directory, along with an .Rdata file containing all associated metadata.
 
-```{r}
+```{r eval=FALSE}
+library(Narrative)
+Narrative::saveCorpus(reuters,"..\\directory", save_metadata = T)
+```
+```{r echo=FALSE}
 library(Narrative)
 Narrative::saveCorpus(reuters,"C:\\Users\\324240\\Desktop\\test_files", save_metadata = T)
 ```
 
 We can then read this data back in to R, including the metadata, using the `readSeparateText` function.
 
-```{r}
+```{r eval=FALSE}
+reuters2 <- Narrative::readSeparateText("..\\directory", load_metadata = T, metadata_filename = "reuters_metadata.RDS")
+```
+```{r echo=FALSE}
 reuters2 <- Narrative::readSeparateText("C:\\Users\\324240\\Desktop\\test_files",load_metadata = T,metadata_filename = "reuters_metadata.RDS")
 ```
 
-#### Term Frequency Analysis
-A document term matrix provides a ready made data structure for searching. In our example corpus, we can find the number of occurences of the term "oil" by subsetting the DTM on columns.
+### Term Frequency Analysis
+A document term matrix provides a ready made data structure for searching. In our example corpus, we can find the number of occurences of the term "oil" by subsetting the document term matrix on columns.
 
 ```{r}
 inspect(dtm[,c("oil")])
 ```
 
-This can be used to create a time series, showing how the usage of this term has changed over time. To do this, we convert the subsetted DTM in to a numeric vector.
+This can be used to create a time series, showing how the usage of this term has changed over time. To do this, we convert the subsetted document term matrix in to a numeric vector.
 
 ```{r}
 search.result <- as.matrix(dtm[,c("oil")])
@@ -131,6 +138,8 @@ xts.search.aggregate <- Narrative::xtsAggregate(xts.search,
                                                 normalisation = F)
 xts.search.aggregate
 ```
+
+If you have a longer time series you can aggregate by week, month, quarter and year.
 
 There are a number of different normalisation options when aggregating your time series data. If you wish to normalise by the number of documents in a given window, set the normalisation flag to true.
 
@@ -170,9 +179,160 @@ p
 ```
 
 
+### Logical search
+When searching for multiple terms, it is often useful to combine those searches logically. The `logicalMatch` function supports 'AND' and 'OR' logical operations on search results. I'll use the search reult from the previous section to demonstrate.
 
+```{r}
+head(search.result)
+```
 
+If we want to find all documents where both oil AND crude appear, we pass the first two columns of our search reult and specify the "AND" logical operation.
 
+```{r}
+Narrative::logicalMatch(search.result[,1:2],"AND")
+```
+
+This is useful to see where terms of interest appear, but if we want to know the total occurence of both terms in these document we need to pass a function to apply to the search vectors. In this case, we wish to sum the occurences of both terms, so we pass the `sum` function from base R to the `FUN` argument.
+
+```{r}
+Narrative::logicalMatch(search.result[,1:2], "AND", FUN = sum)
+```
+
+We may only wish to find the number of matching pairs of terms, in which case we can pass the `min` function.
+
+```{r}
+Narrative::logicalMatch(search.result[,1:2], "AND", FUN = min)
+```
+
+We can also perform an "OR" logical match. This time we'll look for all occurences of crude OR kuwait, and summ thos eoccurences.
+
+```{r}
+Narrative::logicalMatch(search.result[,2:3], "OR", FUN = sum)
+```
+
+### Sentiment
+Narrative provides a dictionary based sentiment calculator, inspired by work by [Rickard Nyman et al.](https://www.ecb.europa.eu/events/pdf/conferences/140407/presentations/session5/Nyman-NewsAndNarrativesECB.pdf?66875f256d629dde9e4f11b0633ba74a). Two dictionaries of positive and negative terms from a financial perspective are provided, and can be read in using the Narrative IO functions.
+
+```{r sentiment_ts,eval=FALSE}
+dictionaries <- Narrative::readSeparateText("inst//extdata//dictionaries")
+```
+```{r echo=FALSE,warning=FALSE}
+dictionaries <- Narrative::readSeparateText("C:\\dev\\DataLab\\Narrative\\inst\\extdata\\dictionaries")
+```
+
+We then call the `corpusSentiment` function, providing the term document matrix, each dictionary, and a meta data field over which to normalise. This generates a numeric vector of sentiment values, calculated by counting occurences of words from each dictionary, taking the difference, then normalising, in this case by word count. This results in a score with value $^{+}_{-}1$, where 0 represents a neutral document.
+
+$$\frac{{|positive|}-{|negative|}}{character count}$$
+
+The occurence counts for each dictionary are also returned.
+
+```{r}
+v <- Narrative::corpusSentiment(tdm = t(dtm),
+                                dict.positive = tolower(dictionaries[meta(dictionaries,tag="id")=="excitement"][[1]]$content),
+                                dict.negative = tolower(dictionaries[meta(dictionaries,tag="id")=="anxiety"][[1]]$content),
+                                normalisation.meta = do.call(c,meta(reuters,"word_count")))
+
+head(v)
+```
+
+We can then add these vectors to our corpus meta data, and plot using the same process detailed above for word counts, passing the corpus sentiment meta data rather than a vector of search results.
+
+```{r}
+reuters <- Narrative::addToMetaData(reuters, v[,1], tag="sentiment")
+reuters <- Narrative::addToMetaData(reuters, v[,2], tag="positive.count")
+reuters <- Narrative::addToMetaData(reuters, v[,3], tag="negative.count")
+rm(v)
+```
+
+```{r}
+xts.sentiment <- Narrative::xtsGenerate(do.call(c,meta(reuters,tag="datetimestamp")),do.call(c,meta(reuters,tag="sentiment")))
+
+xts.sentiment.aggregate <- Narrative::xtsAggregate(xts.sentiment, "daily", normalisation = F)
+
+p <- zoo::autoplot.zoo(xts.sentiment.aggregate, main = ("Sentiment"))
+p + ggplot2::xlab("Date") + ggplot2::ylab("Sentiment")
+```
+
+### N-gram Term Document Matrix 
+To search for phrases an N-gram term document matrix must be constructed. The `tdmGenerator` function handles this; pass the term length and the corpus, and it will return a suitably sized term document matrix.
+
+```{r}
+tdm.2 <- Narrative::tdmGenerator(2, reuters)
+tdm.2
+inspect(tdm.2[90:100,1:10])
+```
+
+If you pass a numeric vector then a term document matrix containing all term lengths will be generated.
+
+```{r}
+Narrative::tdmGenerator(c(1,2,3), reuters)
+```
+
+These large term document matrices can be used as any other typical tdm, for example in all search functions detailed previously.
+
+### Context Analyser
+Narrative provides a couple of functions for annotating your corpus, for example by sentence, and then performing searches over them.
+
+We first need to recreate our original corpus without removing punctuation, otherwise there will be no periods through which to identify sentences.
+
+```{r}
+reuters <- VCorpus(DirSource(reut21578),readerControl = list(reader = readReut21578XMLasPlain))
+reuters <- tm_map(reuters, content_transformer(tolower))
+reuters <- tm_map(reuters, content_transformer(removeNumbers))
+reuters <- tm_map(reuters, content_transformer(removeWords), stopwords("english"))
+reuters <- tm_map(reuters, stemDocument)
+reuters <- tm_map(reuters, content_transformer(stripWhitespace))
+```
+
+We can then call `narrativeAnnotator`, passing the corpus we wish to annotate, the desired annotation method, and whether we wish to include meta data in the corpus object returned.
+
+```{r}
+reuters.annotated <- Narrative::narrativeAnnotator(reuters, annotator = "sentence", metadata = T)
+reuters.annotated[[1]][[1]]
+```
+
+We can filter by individual sentences by first selecting the document, then the content, then the sentence of interest.
+
+```{r}
+reuters.annotated[[1]][[1]][2]
+reuters.annotated[[1]][[1]][4]
+```
+
+To search over this annotated corpus, use the `annotatorSearch` function. This accepts an annotated corpus, a character vector of search terms, and a width parameter detailing the number of adjacent sentences to include in the result. A list of matching sentences is returned.
+
+```{r}
+Narrative::annotatorSearch(annotated.corpus = reuters.annotated[c(1,3)], terms = "oil", width = 0)
+```
+
+This list of sentences can be converted in to a document term matrix for further analysis. Below, we use it to create a wordcloud of the content of those matched sentences.
+
+```{r}
+terms <- "oil"
+matched.sentences <- Narrative::annotatorSearch(reuters.annotated, terms, width=0)
+
+sentences <- tm::Corpus(tm::VectorSource(matched.sentences))
+sentences.tdm <- Narrative::tdmGenerator(seq(1, 2, by=1), sentences)
+
+logi <- rownames(sentences.tdm) %in% terms 
+sentences.tdm <- sentences.tdm[!logi,]  # remove original search term from tdm
+
+m <- as.matrix(sentences.tdm)
+v <- sort(rowSums(m),decreasing=TRUE)
+d <- data.frame(word = names(v),freq=v,key="word")
+
+library(wordcloud)
+
+wordcloud(d$word, d$freq, scale=c(4,1), max.words=200, min.freq=10, random.order=FALSE, 
+          rot.per=0, fixed.asp=TRUE, use.r.layout=FALSE, colors=brewer.pal(9, "Reds"), random.color=FALSE)
+
+rm(m,v,d,sentences,sentences.tdm,logi,search.vector,terms)
+```
+
+### Miscellaneous
+The `corpusAggregate` function is a flexible function allowing you to apply a user defined function over aggregate time periods of a corpus. This can be useful for applying alternative normalisation statistics, such as by number of 
+unique terms.
+
+`weightSort` takes a term document or document term matrix and returns a nested list of terms, sorted by weight, for each document.
 
 
 

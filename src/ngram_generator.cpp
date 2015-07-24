@@ -1,7 +1,7 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
-// [[Rcpp::export]]
+// [[Rcpp::export(name=".ngram_generator")]]
 std::vector<std::string> ngram_generator(std::string sentence, unsigned int n){
 	std::istringstream iss(sentence);
 	std::vector<std::string> tokens;
@@ -21,7 +21,7 @@ std::vector<std::string> ngram_generator(std::string sentence, unsigned int n){
 	return(bigrams);
 }
 
-// [[Rcpp::export]]
+// [[Rcpp::export(name=".tdm_creator")]]
 std::map<std::string, int> tdm_creator(std::vector<std::string> ngrams){
   std::map<std::string, int> tdm;
 	std::vector<int> matched;
@@ -48,7 +48,7 @@ std::map<std::string, int> tdm_creator(std::vector<std::string> ngrams){
 	return(tdm);
 }
 
-// [[Rcpp::export]]
+// [[Rcpp::export(name=".tdm_generator")]]
 Rcpp::DataFrame tdm_generator(std::vector<std::string> documents, int n){
 	std::map<std::string, int> matches;
   

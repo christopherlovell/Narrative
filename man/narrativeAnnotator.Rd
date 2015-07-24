@@ -4,7 +4,12 @@
 \alias{narrativeAnnotator}
 \title{Annotate corpus}
 \usage{
-narrativeAnnotator(corpus, annotator = "sentence", meta = T)
+narrativeAnnotator(corpus, annotator = "sentence", metadata = T)
+}
+\arguments{
+\item{corpus}{tm Corpus object}
+
+\item{annotator}{specify "sentence" or "word" tokenisation, or provide your own annotator function}
 }
 \description{
 Apply annotations to documents.

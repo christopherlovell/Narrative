@@ -2,12 +2,12 @@
 % Please edit documentation in R/narrative_functions.R
 \name{weightSort}
 \alias{weightSort}
-\title{Weight a Term Document Matrix}
+\title{Sort a Term Document Matrix by term weight}
 \usage{
 weightSort(x)
 }
 \arguments{
-\item{corpus}{corpus object to be weighted}
+\item{x}{document term or term document matrix object to be weighted}
 }
 \description{
 Returns a nested list of terms for each document, sorted by weight.
