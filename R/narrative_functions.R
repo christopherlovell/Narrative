@@ -158,27 +158,29 @@ corpusSentiment <- function(tdm, dict.positive, dict.negative, normalisation.met
 #'@param length character vector of terms, or a numeric vector of lengths, for which to create corresponding term document matrices
 #'@param corpus corpus object
 tdmGenerator <- function(length, corpus, control_params = c()){
-  if(class(length)=="character"){
+  if(class(length) == "character"){
     lengths<-unique(unlist(lapply(length,function(x) length( unlist(base::strsplit(gsub(' {2,}',' ',x),' ') )))))
-  }else if(class(length)=="numeric"){
+  }else if(class(length) == "numeric"){
     lengths<-length
   }else{
     stop("please provide a character vector of terms, or a numeric vector of lengths.")
   }
 
-  tdm<-lapply(unique(lengths),.nGramTokenizerGenerator,corpus=corpus,control_params=control_params)
-  
-  return(as.TermDocumentMatrix(do.call(base::rbind,tdm),weighting=tm::weightTf,control = control_params))
+  dtm <- lapply(unique(lengths), .nGramTokenizerGenerator, corpus = corpus, control_params = control_params)
+  return(as.DocumentTermMatrix(do.call(base::cbind,dtm), weighting = tm::weightTf, control = control_params))
 }
 
 #'(private) N-gram Term-Document/Document-Term Matrix Generator
 #'
 #'Generates a TermDocumentMatrix or a DocumentTermMatrix object for a given corpus at ngram length
-#'@param length ngram length to create matrix for
+#'@param length ngram length of term document matrix to be created
 #'@param corpus corpus object to transform
 .nGramTokenizerGenerator <- function(length, corpus, control_params = c()){
-  docs <- unlist(lapply(corpus,function(x) paste(as.character(x), collapse=" ")))
-  reshape2::acast(.tdm_generator(docs,length), term~doc, value.var = "count", fill=0)  # C++ tdm generator function call 
+  docs <- unlist(lapply(corpus, function(x) x[[1]]))
+  temp <- tdm_generator(docs,length)
+  colnames(temp$dtm) <- temp$terms
+  rownames(temp$dtm) <- meta(corpus, "id")
+  return(temp$dtm)
 }
 
 #'Sort a Term Document Matrix by term weight

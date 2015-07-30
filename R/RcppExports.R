@@ -9,7 +9,7 @@
     .Call('Narrative_tdm_creator', PACKAGE = 'Narrative', ngrams)
 }
 
-.tdm_generator <- function(documents, n) {
+tdm_generator <- function(documents, n) {
     .Call('Narrative_tdm_generator', PACKAGE = 'Narrative', documents, n)
 }
 

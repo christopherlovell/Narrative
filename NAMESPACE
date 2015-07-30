@@ -1,4 +1,4 @@
 useDynLib(Narrative)
-exportPattern("^[[:alpha:]]+")
 importFrom(Rcpp, evalCpp)
-import(tm,tools,xts,reshape2)
+exportPattern("^[[:alpha:]]+")
+import(tm,tools,xts,reshape2,Matrix)
