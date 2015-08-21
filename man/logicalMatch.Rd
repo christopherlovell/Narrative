@@ -15,7 +15,7 @@ logicalMatch(search, logic, FUN = NULL)
  \item{OR - return all term counts}
 }}
 
-\item{normalisation}{either a character vector indicating to return a logical vector of matches,
+\item{FUN}{either a character vector indicating to return a logical vector of matches,
 or a function specifying the normalisation of matching values. For example, if normalisation = sum, for an "OR"
 logical match all matches of each search term in each document will be summed and returned. If normalisation = min,
 for an "AND" logical match the number of pairs of terms is returned.}

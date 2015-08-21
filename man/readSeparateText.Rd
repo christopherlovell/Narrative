@@ -9,6 +9,12 @@ readSeparateText(directory, load_metadata = F, meta_directory = directory,
 }
 \arguments{
 \item{directory}{path to text file directory}
+
+\item{load_metadata}{bool, whether to load metadata along with the corpus or not}
+
+\item{meta_directory}{if load_metadata is True, specify the location directory. Defaults to `directory`.}
+
+\item{metadata_filename}{if load_metadata is True, specify the filename.}
 }
 \description{
 Read separate text documents within a given directory, output corpus.

@@ -7,13 +7,13 @@
 corpusSentiment(tdm, dict.positive, dict.negative, normalisation.meta = NULL)
 }
 \arguments{
-\item{dict.positive}{Text document containing positive words to be matched}
+\item{tdm}{TermDocumentMatrix object}
 
-\item{dict.negative}{Text document containing negative words to be matched}
+\item{dict.positive}{character vector of positive words to be matched}
+
+\item{dict.negative}{character vector of negative words to be matched}
 
 \item{normalisation.meta}{document level corpus meta data field containing value to normalise over.}
-
-\item{corpus}{corpus object}
 }
 \description{
 #Calculate sentiment of documents in a corpus using the sentiment calculator from Financial Narratives.

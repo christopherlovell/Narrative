@@ -5,19 +5,21 @@ Version: 0.3
 Date: 2015-07-29
 Authors@R: person("Christopher","Lovell",email = "chrisl1991@hotmail.co.uk",role = c("aut", "cre"))
 Maintainer: Christopher Lovell <chrisl1991@hotmail.co.uk>
-Description: Time series analysis of corpora
+Description: Extends fuctionality of the tm package to improve performance, and allow easier manipulation of time varying text sources.
 License: GPL (>= 2)
 Depends:
     R (>= 3.1.1)
-LinkingTo: Rcpp, RcppArmadillo
-Imports: Rcpp (>= 0.11.6),
+LinkingTo: Rcpp
+Imports: Rcpp (>= 0.12.0),
 	tm (>= 0.6.1),
 	tools,
 	xts,
 	zoo,
 	openNLP,
 	reshape2,
-	Matrix
+	Matrix,
+	NLP,
+	slam
 Suggests: R.rsp
 LazyData: true
 VignetteBuilder: R.rsp

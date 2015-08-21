@@ -10,13 +10,13 @@ saveCorpus(corpus, directory, filenames = NULL, save_metadata = F,
 \arguments{
 \item{corpus}{a tm corpus object}
 
+\item{directory}{ouput directory}
+
+\item{filenames}{filenames with which to save each document. If `NULL`, defaults to document id metadata in corpus.}
+
 \item{save_metadata}{switch to indicate that metadata should be saved}
 
 \item{meta_directory}{ouput metadata directory. defaults to `dir`}
-
-\item{dir}{ouput directory}
-
-\item{tags}{list of meta data tags to save. Defaults to all meta data}
 }
 \description{
 Save with meta data

@@ -10,6 +10,8 @@ narrativeAnnotator(corpus, annotator = "sentence", metadata = T)
 \item{corpus}{tm Corpus object}
 
 \item{annotator}{specify "sentence" or "word" tokenisation, or provide your own annotator function}
+
+\item{metadata}{bool specifying whether to include metadata from source corpus in returned annotated corpus object}
 }
 \description{
 Apply annotations to documents.

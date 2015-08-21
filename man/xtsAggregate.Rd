@@ -7,6 +7,15 @@
 xtsAggregate(xts.scores, time_aggregate, normalisation,
   aggregate_function = sum)
 }
+\arguments{
+\item{xts.scores}{xts object of scores}
+
+\item{time_aggregate}{time step over which to aggregate. Can be one of the following: \{day,week,month,quarter,year\}}
+
+\item{normalisation}{if FALSE, apply no normalisation. If true, normalise by number of documents. Can apply custom normalisations by passing a numeric or integer vector of equal length to `xts.scores` over which to normalise}
+
+\item{aggregate_function}{function through which to aggregate. `sum()` by default}
+}
 \description{
 Returns an xts object aggregated and normalised over the given time window by the specified aggregation function
 }

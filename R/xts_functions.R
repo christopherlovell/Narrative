@@ -8,14 +8,17 @@ NULL
 #'
 #'Apply function over corpus within specified time periods, and return an aggregated xts object.
 #'For example, the following function calculates the number of unique terms in a given corpus: 
+#'
 #'\code{FUN<-function(x){nTerms(DocumentTermMatrix(x))}}
 #'\code{corpusAggregate} splits the supplied corpus in to time periods, then applies the function to each
 #'individual period in isolation.
+#'
 #'@param corpus corpus object over which to aggregate
 #'@param meta_time meta data field containing time information
 #'@param time_aggregate period over which to aggregate. Can be one of the following: \{day,week,month,quarter,year\}
 #'@param FUN function to apply to corpus time bins
 #'@param ... optional arguments to FUN
+#'
 corpusAggregate <- function(corpus,meta_time,time_aggregate,FUN,...){
   date.range<-range(do.call(c,NLP::meta(corpus,meta_time)))
   date.sequence<-seq(date.range[1],date.range[2],time_aggregate)
@@ -48,6 +51,12 @@ xtsGenerate <- function(time, value){
 #'Aggregate xts objects
 #'
 #'Returns an xts object aggregated and normalised over the given time window by the specified aggregation function
+#'
+#'@param xts.scores xts object of scores
+#'@param time_aggregate time step over which to aggregate. Can be one of the following: \{day,week,month,quarter,year\}
+#'@param normalisation if FALSE, apply no normalisation. If true, normalise by number of documents. Can apply custom normalisations by passing a numeric or integer vector of equal length to `xts.scores` over which to normalise
+#'@param aggregate_function function through which to aggregate. `sum()` by default
+#'
 xtsAggregate <- function(xts.scores, time_aggregate, normalisation, aggregate_function = sum){
   
   if(time_aggregate == "none"){
@@ -80,7 +89,7 @@ xtsAggregate <- function(xts.scores, time_aggregate, normalisation, aggregate_fu
     stop("Please provide a valid normalisation value. See the documentation for details on accepted data types.")
   }
   
-  return(do.call(cbind.xts, lapply(lapply(xts.scores, apply_aggregate, sum), function(x) x/norm.aggregate)))
+  return(do.call(cbind.xts, lapply(lapply(xts.scores, apply_aggregate, aggregate_function), function(x) x/norm.aggregate)))
 }
 
 
