@@ -192,7 +192,7 @@ ngramFreq <- function(x, n = 1) {
 #'@param n character vector of terms, or a numeric vector of lengths, for which to create corresponding term document matrices
 #'@param control_params list of parameters to parse when constructing the term document matrix. See `tm::TermDocumentMatrix()` for details.
 #'
-ngramDocumentTermMatrix <- function(corpus, n = 1, control_params = c()) {
+ngramTermDocumentMatrix <- function(corpus, n = 1, control_params = c()) {
   if(class(n) == "character"){
     lengths <- unique(unlist(lapply(n, function(x) {
       length(unlist(base::strsplit(gsub(' {2,}', ' ', x), ' ') ))
@@ -204,7 +204,7 @@ ngramDocumentTermMatrix <- function(corpus, n = 1, control_params = c()) {
   }
 
   dtm <- lapply(lengths, .nGramTokenizerGenerator, corpus = corpus)
-  return(as.DocumentTermMatrix(do.call(base::cbind,dtm), weighting = tm::weightTf, control = control_params))
+  return(as.TermDocumentMatrix(do.call(base::cbind,dtm), weighting = tm::weightTf, control = control_params))
 }
 
 #'(private) N-gram Term-Document/Document-Term Matrix Generator
