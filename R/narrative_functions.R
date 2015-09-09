@@ -204,7 +204,7 @@ ngramTermDocumentMatrix <- function(corpus, n = 1, control_params = c()) {
   }
 
   dtm <- lapply(lengths, .nGramTokenizerGenerator, corpus = corpus)
-  return(as.TermDocumentMatrix(do.call(base::cbind,dtm), weighting = tm::weightTf, control = control_params))
+  return(as.TermDocumentMatrix(do.call(base::rbind, dtm), weighting = tm::weightTf, control = control_params))
 }
 
 #'(private) N-gram Term-Document/Document-Term Matrix Generator
