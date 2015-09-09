@@ -125,6 +125,33 @@ annotatorSearch<-function(annotated.corpus, terms, width = 0){
   return(matched.sentences)
 }
 
+#'TEMP
+#'
+#'
+contextAnalyser<-function(corpus,terms,search.vector,width=0){  
+  # filter out docs that return search
+  corpus.search<-corpus[search.vector>0]
+  
+  # regex matching sentences and return index
+  matches<-lapply(corpus.search,function(x) which(grepl(terms,x[[1]])))
+  
+  # add width to matched sentence index
+  if(width>0){
+    matches<-lapply(matches,function(x) append(x,c(x+width,x-width)))
+    matches<-lapply(matches,function(x) unique(x))
+  }
+  
+  # grab corresponding sentences in to nested list
+  matched.sentences<-data.frame()
+  i<-1
+  while(i<length(corpus.search)){
+    matched.sentences <- append(matched.sentences,list(corpus.search[[i]][[1]][matches[[i]]]))
+    i<-i+1
+  }
+  
+  return(matched.sentences)
+}
+
 #' Financial Narratives Sentiment
 #' 
 #' #Calculate sentiment of documents in a corpus using the sentiment calculator from Financial Narratives.
@@ -176,7 +203,14 @@ ngramFreq <- function(x, n = 1) {
     return(.ngram_generator(gsub("[\r\n]", " ", x), n, delim = ' '))
   }
   else if(sum(class(x) %in% c("VCorpus", "Corpus"))>0){
-    docs <- unlist(lapply(x, function(x) gsub("[\r\n]", " ", x[[1]])))
+    docs <- unlist(lapply(x, function(x) { 
+      temp <- gsub("[\r\n]", " ", x[[1]])
+      if(length(temp) > 1){
+        paste(temp, collapse = " ")
+      }else{
+        temp
+      }
+    }))
     return(.ngram_generator(gsub("[\r\n]", " ", docs), n, delim = ' '))
   }
   else{
